@@ -1,6 +1,5 @@
-# StepperBotController
-Two wheeled rover with stepper motors for precision movement. This is the ground station code of the project. The whole rover is 
-"layered" in three slices:
+# StepperBotGroundStation
+Two wheeled rover with stepper motors for precision movement. This is the ground station code of the project. The whole rover is "layered" in three slices:
 
 - the chassis layer: https://github.com/Brezensalzer/StepperBotChassis
 - the control layer: https://github.com/Brezensalzer/StepperBotController
