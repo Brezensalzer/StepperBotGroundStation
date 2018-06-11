@@ -75,7 +75,7 @@ class nanoLidar:
         for line in lines:
             if line != '':
                 (angle, dist_cm, strength) = line.split(',')
-                self.lidar_data[angle] = (dist_cm*10,strength)
+                self.lidar_data[int(angle)] = (int(dist_cm)*10,int(strength))
 
         return [pair if len(pair) == 2 else (0,0) for pair in self.lidar_data]
 
