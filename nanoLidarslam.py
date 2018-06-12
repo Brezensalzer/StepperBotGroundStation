@@ -4,19 +4,6 @@
 nanLidarslam.py based on
 xvslam.py : BreezySLAM Python with GetSurreal XV Lidar by D. Levy
 https://github.com/simondlevy/BreezySLAM
-
-This code is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as 
-published by the Free Software Foundation, either version 3 of the 
-License, or (at your option) any later version.
-
-This code is distributed in the hope that it will be useful,     
-but WITHOUT ANY WARRANTY without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public License 
-along with this code.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
 MAP_SIZE_PIXELS         = 500
@@ -26,13 +13,21 @@ from breezyslam.algorithms import RMHC_SLAM
 from breezyslam.sensors import XVLidar as LaserModel
 
 import nanoLidar
+import robotPosition
 
 from pltslamshow import SlamShow
 
+#-------------------------------------------
 if __name__ == '__main__':
 
+    #---------------------------------------
+    # Setup Lidar unit and SLAM
+    #---------------------------------------
     # Connect to Lidar unit
     lidar = nanoLidar.nanoLidar()
+    # get firmware info 
+    print("Lidar Version:") 
+    print(lidar.getInfo())
 
     # Create an RMHC SLAM object with a laser model and optional robot model
     slam = RMHC_SLAM(LaserModel(), MAP_SIZE_PIXELS, MAP_SIZE_METERS)
@@ -46,7 +41,21 @@ if __name__ == '__main__':
     # Initialize empty map
     mapbytes = bytearray(MAP_SIZE_PIXELS * MAP_SIZE_PIXELS)
 
-    while True:
+    #---------------------------------------
+    # Setup Robot unit
+    #---------------------------------------
+    # Connect to robot unit
+    robot = robotPosition.robotPosition()
+    robot.powerOn()
+    # get firmware info 
+    print("Chassis Version:") 
+    print(robot.getInfo())  
+
+    #---------------------------------------
+    # main loop
+    #---------------------------------------
+    run = True:
+    while run:
 
         # Update SLAM with current Lidar scan, using first element of (scan, quality) pairs
         slam.update([pair[0] for pair in lidar.getScan()])
@@ -64,5 +73,15 @@ if __name__ == '__main__':
         # Exit on ESCape
         key = display.refresh()
         if key != None and (key&0x1A):
-            exit(0)
-     
+            run = False
+
+        # Movement control
+        distance = int(input("Distance [mm]: "))
+        angle = int(input("Turn angle [degrees]: "))
+        (xp, yp, theta_deg, theta_rad) = robot.setPosition(distance,angle)
+        if int(input("Carry on (1/0): ")) == 0: 
+            run = False
+
+    # power off stepper motors   
+    robot.powerOff()
+
