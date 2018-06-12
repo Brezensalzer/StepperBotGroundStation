@@ -54,7 +54,7 @@ if __name__ == '__main__':
     #---------------------------------------
     # main loop
     #---------------------------------------
-    run = True:
+    run = True
     while run:
 
         # Update SLAM with current Lidar scan, using first element of (scan, quality) pairs
