@@ -12,19 +12,25 @@ MAP_SIZE_METERS         = 10
 from breezyslam.algorithms import RMHC_SLAM
 from breezyslam.sensors import XVLidar as LaserModel
 
+import logging 
+import asyncio 
+from aiocoap import *
+
 import nanoLidar
 import robotPosition
 
 from pltslamshow import SlamShow
 
-#-------------------------------------------
-if __name__ == '__main__':
+host = 'beagle.modellmarine.de'
+
+#---------------------------------------
+async def main():
 
     #---------------------------------------
     # Setup Lidar unit and SLAM
     #---------------------------------------
     # Connect to Lidar unit
-    lidar = nanoLidar.nanoLidar()
+    lidar = nanoLidar.nanoLidar(host)
     # get firmware info 
     print("Lidar Version:") 
     print(lidar.getInfo())
@@ -45,7 +51,7 @@ if __name__ == '__main__':
     # Setup Robot unit
     #---------------------------------------
     # Connect to robot unit
-    robot = robotPosition.robotPosition()
+    robot = robotPosition.robotPosition(host)
     robot.powerOn()
     # get firmware info 
     print("Chassis Version:") 
@@ -85,3 +91,6 @@ if __name__ == '__main__':
     # power off stepper motors   
     robot.powerOff()
 
+#-------------------------------------------
+if __name__ == '__main__':
+    syncio.get_event_loop().run_until_complete(main())
