@@ -2,43 +2,11 @@
 # Class for tracking a robot's position
 #
 import math
-import pika
-import uuid
+import logging 
+import asyncio  
+from aiocoap import *  
 
-#------------------------------------
-# setup message queueing
-#------------------------------------
-class stepperRpcClient(object):
-    def __init__(self, hostname, user, passwd):
-        self.cred = pika.PlainCredentials(user, passwd)
-        self.connection = pika.BlockingConnection(pika.ConnectionParameters(
-                host=hostname,credentials=self.cred))
-
-        self.channel = self.connection.channel()
-
-        result = self.channel.queue_declare(exclusive=True)
-        self.callback_queue = result.method.queue
-
-        self.channel.basic_consume(self.on_response, no_ack=True,
-                                   queue=self.callback_queue)
-
-    def on_response(self, ch, method, props, body):
-        if self.corr_id == props.correlation_id:
-            self.response = body
-
-    def call(self, n):
-        self.response = None
-        self.corr_id = str(uuid.uuid4())
-        self.channel.basic_publish(exchange='',
-                                   routing_key='stepper_queue',
-                                   properties=pika.BasicProperties(
-                                         reply_to = self.callback_queue,
-                                         correlation_id = self.corr_id,
-                                         ),
-                                   body=n.encode('utf-8'))
-        while self.response is None:
-            self.connection.process_data_events()
-        return self.response
+logging.basicConfig(level=logging.INFO)
 
 #------------------------------------
 # Drive a robot
@@ -46,7 +14,9 @@ class stepperRpcClient(object):
 class robotPosition:
     'Class for tracking a robot\'s position'
 
-    def __init__(self):
+    def __init__(self, host):
+        # coap target
+        self.host = host
         # coordinates in [mm]
         self.x = 0
         self.y = 0
@@ -57,45 +27,75 @@ class robotPosition:
         # track
         self.track = []
         self.track.append((self.x, self.y, self.theta_deg, self.theta_rad))
-        # initialize message queueing
-        self.stepperRpc = stepperRpcClient('x200.modellmarine.de','x200','bone')
         # calibration, todo...
-        rc = self.stepperRpc.call('t102.5#').decode('utf-8')
+        #response = await self.__coapPut('coap://'+self.host+'/robot/command','t102.5#') 
 
-    def getInfo(self):
-        return self.stepperRpc.call('i#').decode('utf-8')
+    async def __coapGet(self,coap_uri): 
+        # initialize coap 
+        protocol = await Context.create_client_context()
+        request = Message(code=GET, uri=coap_uri)
+        try: 
+            response = await protocol.request(request).response
+        except Exception as e: 
+            print('Failed to fetch resource:') 
+            print(e)
+        else: 
+            # print('Result: %s\n%r'%(response.code, response.payload)) 
+            return response.payload.decode('utf-8')
+
+    async def __coapPut(self,coap_uri,payload): 
+        # initialize coap 
+        protocol = await Context.create_client_context()
+        request = Message(code=PUT, uri=coap_uri, payload=payload.encode('utf-8'))
+        try: 
+            response = await protocol.request(request).response
+        except Exception as e: 
+            print('Failed to fetch resource:') 
+            print(e)
+        else: 
+            # print('Result: %s\n%r'%(response.code, response.payload)) 
+            return response.payload.decode('utf-8')
+
+    async def listMethods(self): 
+        # list available coap methods 
+        response = await self.__coapGet('coap://'+self.host+'/.well-known/core') 
+        return response
+
+    async def getInfo(self):
+        response = await self.__coapPut('coap://'+self.host+'/robot/command','i#') 
+        return response
 		
     def getPosition(self):
         return (self.x, self.y, self.theta_deg, self.theta_rad)
 
-    def powerOn(self):
-        self.stepperRpc.call('e#').decode('utf-8')
+    async def powerOn(self):
+        response = await self.__coapPut('coap://'+self.host+'/robot/command','e#') 
 		
-    def powerOff(self):
-        self.stepperRpc.call('d#').decode('utf-8')
+    async def powerOff(self):
+        response = await self.__coapPut('coap://'+self.host+'/robot/command','d#') 
 		
-    def setPosition(self, distance, angle):
+    async def setPosition(self, distance, angle):
         # distance in [mm]
         # angle in degrees
-        # angle < 0: turn left
-        # angle > 0: turn right
+        # angle > 0: turn left
+        # angle < 0: turn right
         
         # drive
         if distance > 0:  # forward
             cmd = 'f' + str(distance) + '#'
-            self.stepperRpc.call(cmd).decode('utf-8')
+            response = await self.__coapPut('coap://'+self.host+'/robot/command',cmd) 
         if distance < 0:  # backward
             cmd = 'b' + str(abs(distance)) + '#'
-            self.stepperRpc.call(cmd).decode('utf-8')
+            response = await self.__coapPut('coap://'+self.host+'/robot/command',cmd) 
 
         # turn
         if angle > 0:     # turn left
             cmd = 'l' + str(angle) + '#'
-            self.stepperRpc.call(cmd).decode('utf-8')
+            response = await self.__coapPut('coap://'+self.host+'/robot/command',cmd) 
         if angle < 0:     # turn right
             cmd = 'r' + str(abs(angle)) + '#'
-            self.stepperRpc.call(cmd).decode('utf-8')
-	            
+            response = await self.__coapPut('coap://'+self.host+'/robot/command',cmd) 
+
         # calculate new position
         self.x = self.x + int(distance * math.cos(self.theta_rad))
         self.y = self.y + int(distance * math.sin(self.theta_rad))
